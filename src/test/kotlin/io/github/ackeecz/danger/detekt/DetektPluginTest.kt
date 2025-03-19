@@ -48,6 +48,23 @@ class DetektPluginTest {
     }
 
     @Test
+    fun `should allow custom reporters`() {
+        // before
+        val context = FakeDangerContext()
+        DetektPlugin.context = context
+        // when
+        DetektPlugin.parseAndCustomReport(
+            { message, file, line ->
+                context.fail(message, file, line)
+            },
+            File(ClassLoader.getSystemResource("detekt_result_single_file.xml").toURI())
+        )
+        // then
+        Truth.assertThat(context.fails)
+            .hasSize(2)
+    }
+
+    @Test
     fun `should process no file in report`() {
         // before
         val context = FakeDangerContext()

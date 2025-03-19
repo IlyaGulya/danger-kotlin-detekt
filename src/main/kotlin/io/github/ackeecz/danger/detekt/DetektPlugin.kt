@@ -17,6 +17,14 @@ object DetektPlugin : DangerPlugin() {
 
     override val id = "danger-kotlin-detekt"
 
+    private val DEFAULT_REPORTER = CustomReporter { message, filePath, line ->
+        context.warn(
+            message = message,
+            file = filePath,
+            line = line,
+        )
+    }
+
     /**
      * Parse XML output of detekt and report inline comment
      * to the pull request.
@@ -33,6 +41,16 @@ object DetektPlugin : DangerPlugin() {
         }
     }
 
+    fun parseAndCustomReport(reporter: CustomReporter, vararg reportFiles: File) {
+        val mapper = XmlMapper()
+        reportFiles.forEach { file ->
+            FileInputStream(file).use { fileInputStream ->
+                val report = parse(mapper, fileInputStream)
+                customReport(report, reporter)
+            }
+        }
+    }
+
     private fun parse(
         mapper: XmlMapper,
         fileInputStream: FileInputStream
@@ -44,6 +62,10 @@ object DetektPlugin : DangerPlugin() {
     }
 
     private fun report(report: DetektReport) {
+        customReport(report, DEFAULT_REPORTER)
+    }
+
+    private fun customReport(report: DetektReport, reporter: CustomReporter) {
         report.files.forEach { file ->
             val realFile = File(file.name)
             file.errors.forEach { error ->
@@ -52,14 +74,18 @@ object DetektPlugin : DangerPlugin() {
                 val filePath = realFile.absolutePath.removePrefix(
                     "${File("").absolutePath}/"
                 )
-                context.warn(
+                reporter.onReport(
                     message = message,
-                    file = filePath,
+                    filePath = filePath,
                     line = line
                 )
             }
         }
     }
+}
+
+fun interface CustomReporter {
+    fun onReport(message: String, filePath: String, line: Int)
 }
 
 @JacksonXmlRootElement(namespace = "checkstyle")
